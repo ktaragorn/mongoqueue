@@ -100,9 +100,9 @@ class MongoQueue(object):
                 return True
         return False
 
-    def next(self):
-        scheduled_job = self.next_scheduled_job()
-        free_job = self.next_free_job()
+    def next(self, filter_payload={}):
+        scheduled_job = self.next_scheduled_job(filter_payload=filter_payload)
+        free_job = self.next_free_job(filter_payload=filter_payload)
         next_job = None
 
         if scheduled_job and scheduled_job['time'] < datetime.utcnow():
@@ -126,13 +126,16 @@ class MongoQueue(object):
         else:
             return None
 
-    def next_scheduled_job(self):
-        jobs = self.collection.find({
+    def next_scheduled_job(self, filter_payload={}):
+        _query = {
                 "locked_by": None,
                 "locked_at": None,
                 "time": {"$ne": None},
-                "attempts": {"$lt": self.max_attempts}
-            },
+                "attempts": {"$lt": self.max_attempts},
+            }
+
+        jobs = self.collection.find(
+            {"$and": [_query, filter_payload]},
             sort=[('time', pymongo.ASCENDING)],
             limit=1
         )
@@ -140,13 +143,16 @@ class MongoQueue(object):
             return job
         return None
 
-    def next_free_job(self):
-        jobs = self.collection.find({
+    def next_free_job(self, filter_payload={}):
+        _query = {
                 "locked_by": None,
                 "locked_at": None,
                 "time": None,
-                "attempts": {"$lt": self.max_attempts}
-            },
+                "attempts": {"$lt": self.max_attempts},
+            }
+
+        jobs = self.collection.find(
+            {"$and":[_query, filter_payload]},
             sort=[('priority', pymongo.DESCENDING)],
             limit=1
         )
